@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+    php:
+        build:
+            dockerfile: Dockerfile
+        container_name: leadmailer
+        volumes:
+            - ./:/var/www/html
+        ports:
+            - "8008:8080"
+        networks:
+            - app-network
+        depends_on:
+            db:
+                condition: service_healthy
+
+    db:
+        image: mysql:8.0
+        restart: always
+        environment:
+            MYSQL_ROOT_PASSWORD: lm
+            MYSQL_DATABASE: lm
+            MYSQL_USER: lm
+            MYSQL_PASSWORD: lm
+            MYSQL_ROOT_HOST: "%"
+        volumes:
+            - db_data:/var/lib/mysql
+        ports:
+            - "33063:3306"
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    mailhog:
+        image: mailhog/mailhog:latest
+        container_name: lm-mailhog
+        ports:
+            - "1026:1025"
+            - "8026:8025"
+        networks:
+            - app-network
+
+volumes:
+    db_data: {}
+
+networks:
+    app-network:
+        driver: bridge
