@@ -25,11 +25,23 @@ class CrawlDomainJob implements ShouldQueue
     public function handle(WebCrawlerService $crawler): void
     {
         try {
+            Log::info('Starting domain crawl', [
+                'domain_id' => $this->domain->id,
+                'domain' => $this->domain->domain,
+            ]);
+
             $html = $crawler->crawl($this->domain);
+
+            $pageCount = substr_count($html, '<!-- PAGE_SEPARATOR -->') + 1;
+            $textContent = strip_tags($html);
+            $wordCount = str_word_count($textContent);
 
             Log::info('Domain crawled successfully', [
                 'domain_id' => $this->domain->id,
                 'domain' => $this->domain->domain,
+                'pages_found' => $pageCount,
+                'total_words' => $wordCount,
+                'html_size_kb' => round(strlen($html) / 1024, 2),
             ]);
 
             ExtractContactsJob::dispatch($this->domain, $html);

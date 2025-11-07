@@ -8,175 +8,151 @@ use Illuminate\Support\Facades\Log;
 
 class WebCrawlerService
 {
-    protected array $visitedUrls = [];
-    protected array $htmlPages = [];
-    protected int $maxPages = 10;
-    protected int $timeout = 10;
+    protected string $baseUrl;
+    protected string $username;
+    protected string $password;
+    protected int $timeout;
+    protected int $pollInterval;
+
+    public function __construct()
+    {
+        $this->baseUrl = config('services.firecrawl.base_url', 'https://crawl.meerdevelopment.nl/firecrawl/v1');
+        $this->username = config('services.firecrawl.username', 'admin');
+        $this->password = config('services.firecrawl.password', 'mounted-fascism-outsell-equivocal-spokesman-scarf');
+        $this->timeout = (int) config('services.firecrawl.timeout', 300);
+        $this->pollInterval = (int) config('services.firecrawl.poll_interval', 10);
+    }
 
     public function crawl(Domain $domain, int $maxPages = 10): string
     {
-        $this->maxPages = $maxPages;
-        $this->visitedUrls = [];
-        $this->htmlPages = [];
+        $url = 'https://' . $domain->domain;
 
-        $baseUrl = 'https://' . $domain->domain;
-
-        Log::info('Starting recursive crawl', [
+        Log::info('Starting Firecrawl crawl', [
             'domain_id' => $domain->id,
             'domain' => $domain->domain,
             'max_pages' => $maxPages,
         ]);
 
-        $this->crawlUrl($baseUrl, $domain->domain);
+        $crawlId = $this->startCrawl($url, $maxPages);
 
-        Log::info('Recursive crawl completed', [
+        Log::info('Crawl started, monitoring progress', [
             'domain_id' => $domain->id,
-            'domain' => $domain->domain,
-            'pages_crawled' => count($this->htmlPages),
+            'crawl_id' => $crawlId,
         ]);
 
-        if (empty($this->htmlPages)) {
+        $result = $this->pollCrawlStatus($crawlId, $domain);
+
+        Log::info('Crawl completed', [
+            'domain_id' => $domain->id,
+            'pages_crawled' => count($result),
+        ]);
+
+        if (empty($result)) {
             throw new \Exception('Failed to crawl any pages from domain');
         }
 
-        $concatenated = implode("\n\n<!-- PAGE_SEPARATOR -->\n\n", $this->htmlPages);
+        $concatenated = implode("\n\n<!-- PAGE_SEPARATOR -->\n\n", $result);
 
         return mb_convert_encoding($concatenated, 'UTF-8', 'UTF-8');
     }
 
-    protected function crawlUrl(string $url, string $baseDomain): void
+    protected function startCrawl(string $url, int $limit): string
     {
-        if (count($this->htmlPages) >= $this->maxPages) {
-            return;
+        $response = Http::timeout($this->timeout)
+            ->withBasicAuth($this->username, $this->password)
+            ->post($this->baseUrl . '/crawl', [
+                'url' => $url,
+                'limit' => $limit,
+                'maxDepth' => 2,
+                'scrapeOptions' => [
+                    'formats' => ['markdown', 'html'],
+                    'onlyMainContent' => true,
+                    'useFlaresolverr' => true,
+                    'timeout' => 60000,
+                    'excludeTags' => ['script', 'style', 'nav', 'footer', 'aside', 'iframe'],
+                ],
+            ]);
+
+        if (!$response->successful()) {
+            throw new \Exception('Failed to start crawl: ' . $response->status() . ' - ' . $response->body());
         }
 
-        if (in_array($url, $this->visitedUrls)) {
-            return;
+        $data = $response->json();
+
+        if (!isset($data['success']) || !$data['success']) {
+            throw new \Exception('Crawl request failed: ' . ($data['error'] ?? 'Unknown error'));
         }
 
-        $this->visitedUrls[] = $url;
+        if (!isset($data['id'])) {
+            throw new \Exception('No crawl ID returned from API');
+        }
 
-        Log::debug('Crawling URL', ['url' => $url]);
+        return $data['id'];
+    }
 
-        try {
-            $response = Http::timeout($this->timeout)
-                ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (compatible; LeadBot/1.0)',
-                ])
-                ->get($url);
+    protected function pollCrawlStatus(string $crawlId, Domain $domain): array
+    {
+        $startTime = time();
+        $maxWaitTime = $this->timeout;
+
+        while (true) {
+            if (time() - $startTime > $maxWaitTime) {
+                throw new \Exception('Crawl timeout exceeded');
+            }
+
+            $response = Http::timeout(30)
+                ->withBasicAuth($this->username, $this->password)
+                ->get($this->baseUrl . '/crawl/' . $crawlId);
 
             if (!$response->successful()) {
-                Log::debug('Failed to fetch URL', [
-                    'url' => $url,
-                    'status' => $response->status(),
-                ]);
-                return;
+                throw new \Exception('Failed to check crawl status: ' . $response->status());
             }
 
-            $html = $response->body();
-            $this->htmlPages[] = $html;
+            $status = $response->json();
 
-            $links = $this->extractLinks($html, $url, $baseDomain);
-
-            Log::debug('Extracted links from page', [
-                'url' => $url,
-                'links_found' => count($links),
-                'links' => $links,
+            Log::info('Crawl progress', [
+                'domain_id' => $domain->id,
+                'status' => $status['status'] ?? 'unknown',
+                'completed' => $status['completed'] ?? 0,
+                'total' => $status['total'] ?? 0,
             ]);
 
-            foreach ($links as $link) {
-                if (count($this->htmlPages) >= $this->maxPages) {
-                    break;
+            if (isset($status['status'])) {
+                if ($status['status'] === 'completed') {
+                    return $this->extractContent($status);
                 }
-                $this->crawlUrl($link, $baseDomain);
+
+                if ($status['status'] === 'failed') {
+                    throw new \Exception('Crawl failed: ' . ($status['error'] ?? 'Unknown error'));
+                }
             }
 
-        } catch (\Exception $e) {
-            Log::debug('Error crawling URL', [
-                'url' => $url,
-                'error' => $e->getMessage(),
-            ]);
+            sleep($this->pollInterval);
         }
     }
 
-    protected function extractLinks(string $html, string $currentUrl, string $baseDomain): array
+    protected function extractContent(array $status): array
     {
-        $links = [];
+        if (!isset($status['data']) || !is_array($status['data'])) {
+            throw new \Exception('No data returned from crawl');
+        }
 
-        preg_match_all('/<a\s+[^>]*href=["\'](.*?)["\'][^>]*>/i', $html, $matches);
+        $pages = [];
 
-        foreach ($matches[1] as $link) {
-            $link = trim($link);
-
-            if (empty($link) || $link === '#' || str_starts_with($link, '#')) {
+        foreach ($status['data'] as $page) {
+            if (!isset($page['markdown']) && !isset($page['html'])) {
                 continue;
             }
 
-            if (str_starts_with($link, 'mailto:') || str_starts_with($link, 'tel:') || str_starts_with($link, 'javascript:')) {
+            $content = $page['markdown'] ?? $page['html'] ?? '';
+
+            if (empty(trim($content))) {
                 continue;
             }
 
-            $absoluteUrl = $this->makeAbsoluteUrl($link, $currentUrl);
-
-            if (!$this->isSameDomain($absoluteUrl, $baseDomain)) {
-                continue;
-            }
-
-            $absoluteUrl = $this->normalizeUrl($absoluteUrl);
-
-            if (!in_array($absoluteUrl, $links) && !in_array($absoluteUrl, $this->visitedUrls)) {
-                $links[] = $absoluteUrl;
-            }
+            $pages[] = $content;
         }
 
-        return $links;
-    }
-
-    protected function makeAbsoluteUrl(string $url, string $baseUrl): string
-    {
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
-        }
-
-        $parsedBase = parse_url($baseUrl);
-        $scheme = $parsedBase['scheme'] ?? 'https';
-        $host = $parsedBase['host'] ?? '';
-
-        if (str_starts_with($url, '//')) {
-            return $scheme . ':' . $url;
-        }
-
-        if (str_starts_with($url, '/')) {
-            return $scheme . '://' . $host . $url;
-        }
-
-        $basePath = $parsedBase['path'] ?? '/';
-        $basePath = dirname($basePath);
-        if ($basePath === '.') {
-            $basePath = '';
-        }
-
-        return $scheme . '://' . $host . $basePath . '/' . $url;
-    }
-
-    protected function isSameDomain(string $url, string $baseDomain): bool
-    {
-        $parsed = parse_url($url);
-        $host = $parsed['host'] ?? '';
-
-        return $host === $baseDomain || $host === 'www.' . $baseDomain || 'www.' . $host === $baseDomain;
-    }
-
-    protected function normalizeUrl(string $url): string
-    {
-        $parsed = parse_url($url);
-
-        $normalized = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? '');
-
-        if (isset($parsed['path'])) {
-            $normalized .= rtrim($parsed['path'], '/');
-        }
-
-        return $normalized;
+        return $pages;
     }
 }

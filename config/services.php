@@ -40,4 +40,12 @@ return [
         'model' => env('MISTRAL_MODEL', 'mistral-small-latest'),
     ],
 
+    'firecrawl' => [
+        'base_url' => env('FIRECRAWL_BASE_URL', 'https://crawl.meerdevelopment.nl/firecrawl/v1'),
+        'username' => env('FIRECRAWL_USERNAME', 'admin'),
+        'password' => env('FIRECRAWL_PASSWORD', 'mounted-fascism-outsell-equivocal-spokesman-scarf'),
+        'timeout' => env('FIRECRAWL_TIMEOUT', 300),
+        'poll_interval' => env('FIRECRAWL_POLL_INTERVAL', 10),
+    ],
+
 ];

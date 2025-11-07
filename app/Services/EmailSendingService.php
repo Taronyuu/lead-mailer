@@ -202,7 +202,7 @@ class EmailSendingService
                 'status' => EmailSentLog::STATUS_SENT,
             ]);
 
-            $smtp->recordSuccess();
+            $smtp->incrementSentCount();
             $contact->markAsContacted();
 
             return [

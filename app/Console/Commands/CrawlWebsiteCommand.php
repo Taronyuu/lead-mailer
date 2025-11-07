@@ -52,7 +52,9 @@ class CrawlWebsiteCommand extends Command
             foreach ($domains as $domain) {
                 try {
                     if ($verbose) {
+                        $this->info("═══════════════════════════════════════════");
                         $this->info("Crawling: {$domain->domain} (ID: {$domain->id})");
+                        $this->info("═══════════════════════════════════════════");
                     }
 
                     $job = new CrawlDomainJob($domain);
@@ -60,7 +62,36 @@ class CrawlWebsiteCommand extends Command
                     if ($domain->exists) {
                         $successCount++;
                         if ($verbose) {
+                            $domain->refresh();
                             $this->line("<info>✓</info> Success: {$domain->domain}");
+
+                            $websites = $domain->websites()->withPivot(['page_count', 'word_count', 'detected_platform', 'matches'])->get();
+                            if ($websites->isNotEmpty()) {
+                                $this->line("");
+                                $this->line("<fg=cyan>Website Evaluation Results:</>");
+                                foreach ($websites as $website) {
+                                    $matches = $website->pivot->matches ? '<fg=green>✓ MATCH</>' : '<fg=red>✗ NO MATCH</>';
+                                    $this->line("  Website: {$website->url} - {$matches}");
+                                    $this->line("  - Pages: {$website->pivot->page_count}");
+                                    $this->line("  - Words: {$website->pivot->word_count}");
+                                    $this->line("  - Platform: " . ($website->pivot->detected_platform ?? 'Unknown'));
+
+                                    $evaluationDetails = $website->pivot->evaluation_details;
+                                    if ($evaluationDetails) {
+                                        foreach ($evaluationDetails as $detail) {
+                                            $reqMatch = $detail['matches'] ? '<fg=green>PASS</>' : '<fg=red>FAIL</>';
+                                            $this->line("  - Requirement '{$detail['requirement_name']}': {$reqMatch}");
+                                            if (isset($detail['criteria_results'])) {
+                                                foreach ($detail['criteria_results'] as $criterion => $result) {
+                                                    $critMatch = $result['matched'] ? '<fg=green>✓</>' : '<fg=red>✗</>';
+                                                    $this->line("    {$critMatch} {$criterion}: {$result['message']}");
+                                                }
+                                            }
+                                        }
+                                    }
+                                    $this->line("");
+                                }
+                            }
                         }
                     } else {
                         $deletedCount++;

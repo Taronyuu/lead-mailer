@@ -59,6 +59,16 @@ class EvaluateDomainRequirementsJob implements ShouldQueue
                 'matched_websites' => $matchedWebsites->count(),
             ]);
 
+            foreach ($results as $result) {
+                Log::info('Website evaluation result', [
+                    'domain' => $this->domain->domain,
+                    'website_id' => $result['website_id'],
+                    'website_name' => $result['website_name'],
+                    'matches' => $result['matches'] ? 'YES' : 'NO',
+                    'details' => $result['details'],
+                ]);
+            }
+
             foreach ($matchedWebsites as $match) {
                 CreateReviewQueueEntriesJob::dispatch($this->domain, $match['website_id']);
             }
