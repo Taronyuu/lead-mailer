@@ -8,8 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('website:crawl --limit=100')
-    ->everyTwoHours()
+Schedule::command('website:crawl --limit=1')
+    ->everyMinute()
     ->withoutOverlapping();
 
 Schedule::call(function () {
