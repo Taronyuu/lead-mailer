@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Domain;
+use App\Models\WebsiteRequirement;
 use App\Services\WebCrawlerService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,12 +26,15 @@ class CrawlDomainJob implements ShouldQueue
     public function handle(WebCrawlerService $crawler): void
     {
         try {
+            $maxPages = WebsiteRequirement::calculateRequiredMaxPages();
+
             Log::info('Starting domain crawl', [
                 'domain_id' => $this->domain->id,
                 'domain' => $this->domain->domain,
+                'max_pages' => $maxPages,
             ]);
 
-            $html = $crawler->crawl($this->domain);
+            $html = $crawler->crawl($this->domain, $maxPages);
 
             $pageCount = substr_count($html, '<!-- PAGE_SEPARATOR -->') + 1;
             $textContent = strip_tags($html);
