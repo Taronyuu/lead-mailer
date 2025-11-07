@@ -104,7 +104,8 @@ class RequirementsMatcherService
             ]);
 
             if (isset($criteria['min_pages'])) {
-                $match = $evaluator->evaluateMinPages($criteria['min_pages']);
+                $minPages = $this->parseNumericValue($criteria['min_pages']);
+                $match = $evaluator->evaluateMinPages($minPages);
                 $results['min_pages'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: min_pages', [
@@ -115,7 +116,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['max_pages'])) {
-                $match = $evaluator->evaluateMaxPages($criteria['max_pages']);
+                $maxPages = $this->parseNumericValue($criteria['max_pages']);
+                $match = $evaluator->evaluateMaxPages($maxPages);
                 $results['max_pages'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: max_pages', [
@@ -126,7 +128,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['platforms'])) {
-                $match = $evaluator->evaluatePlatform($criteria['platforms']);
+                $platforms = $this->parseArrayValue($criteria['platforms']);
+                $match = $evaluator->evaluatePlatform($platforms);
                 $results['platforms'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: platforms', [
@@ -137,7 +140,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['min_word_count'])) {
-                $match = $evaluator->evaluateMinWordCount($criteria['min_word_count']);
+                $minWordCount = $this->parseNumericValue($criteria['min_word_count']);
+                $match = $evaluator->evaluateMinWordCount($minWordCount);
                 $results['min_word_count'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: min_word_count', [
@@ -148,7 +152,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['max_word_count'])) {
-                $match = $evaluator->evaluateMaxWordCount($criteria['max_word_count']);
+                $maxWordCount = $this->parseNumericValue($criteria['max_word_count']);
+                $match = $evaluator->evaluateMaxWordCount($maxWordCount);
                 $results['max_word_count'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: max_word_count', [
@@ -159,7 +164,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['required_keywords'])) {
-                $match = $evaluator->evaluateRequiredKeywords($criteria['required_keywords']);
+                $keywords = $this->parseArrayValue($criteria['required_keywords']);
+                $match = $evaluator->evaluateRequiredKeywords($keywords);
                 $results['required_keywords'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: required_keywords', [
@@ -170,7 +176,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['excluded_keywords'])) {
-                $match = $evaluator->evaluateExcludedKeywords($criteria['excluded_keywords']);
+                $keywords = $this->parseArrayValue($criteria['excluded_keywords']);
+                $match = $evaluator->evaluateExcludedKeywords($keywords);
                 $results['excluded_keywords'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: excluded_keywords', [
@@ -181,7 +188,8 @@ class RequirementsMatcherService
             }
 
             if (isset($criteria['required_urls'])) {
-                $match = $evaluator->evaluateRequiredUrls($criteria['required_urls']);
+                $urls = $this->parseArrayValue($criteria['required_urls']);
+                $match = $evaluator->evaluateRequiredUrls($urls);
                 $results['required_urls'] = $match;
                 $allMatch = $allMatch && $match['matched'];
                 Log::info('Criterion: required_urls', [
@@ -238,5 +246,34 @@ class RequirementsMatcherService
         }
 
         return round(($matchedCriteria / $totalCriteria) * 100, 2);
+    }
+
+    protected function parseNumericValue($value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $value = preg_replace('/[^0-9]/', '', $value);
+        }
+
+        return (int) $value;
+    }
+
+    protected function parseArrayValue($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
     }
 }
