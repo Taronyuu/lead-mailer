@@ -8,10 +8,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('website:crawl --queue --limit=100')
+Schedule::command('website:crawl --limit=100')
     ->everyTwoHours()
-    ->withoutOverlapping()
-    ->runInBackground();
+    ->withoutOverlapping();
 
 Schedule::call(function () {
     \App\Models\SmtpCredential::query()->update([
