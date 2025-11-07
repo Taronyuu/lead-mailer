@@ -1,0 +1,15 @@
+name: Deploy to Ploi
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Ploi deployment
+        run: |
+          curl -X POST https://ploi.cloud/webhooks/applications/416/deploy/7BWLp5JRxX9LA2DByNf3qP6kUbbRg2V1vKO0Zdecgo2j3JgtBE7AsUPtWYUxPY6z
