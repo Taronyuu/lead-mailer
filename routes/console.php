@@ -9,21 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('website:crawl --queue --limit=100')
-    ->everySixHours()
+    ->everyTwoHours()
     ->withoutOverlapping()
     ->runInBackground();
-
-Schedule::command('email:process --queue --batch-size=50')
-    ->hourly()
-    ->between('8:00', '17:00')
-    ->weekdays()
-    ->withoutOverlapping();
-
-Schedule::command('email:process --approved --queue --batch-size=10')
-    ->everyThirtyMinutes()
-    ->between('8:00', '17:00')
-    ->weekdays()
-    ->withoutOverlapping();
 
 Schedule::call(function () {
     \App\Models\SmtpCredential::query()->update([
