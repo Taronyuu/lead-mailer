@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('website:crawl --limit=1')
-    ->everyMinute();
+    ->everyFiveMinutes();
 
 Schedule::call(function () {
     \App\Models\SmtpCredential::query()->update([
