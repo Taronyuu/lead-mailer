@@ -9,8 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('contacts', function (Blueprint $table) {
-            $table->dropUnique('website_email_unique');
-            $table->unique(['domain_id', 'email'], 'domain_email_unique');
+            if (Schema::hasIndex('contacts', 'website_email_unique')) {
+                $table->dropUnique('website_email_unique');
+            }
+            if (!Schema::hasIndex('contacts', 'domain_email_unique')) {
+                $table->unique(['domain_id', 'email'], 'domain_email_unique');
+            }
         });
     }
 

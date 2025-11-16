@@ -10,7 +10,8 @@
         "filament/filament": "^3.2",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "roach-php/laravel": "^3.2"
+        "roach-php/laravel": "^3.2",
+        "spatie/crawler": "^8.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -13,8 +13,6 @@ class DomainFactory extends Factory
     {
         return [
             'domain' => fake()->domainName(),
-            'status' => 0,
-            'check_count' => 0,
         ];
     }
 }

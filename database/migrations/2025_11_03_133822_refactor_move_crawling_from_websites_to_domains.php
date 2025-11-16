@@ -40,24 +40,33 @@ return new class extends Migration
         DB::table('contacts')->update(['domain_id' => DB::raw('website_id')]);
 
         Schema::table('contacts', function (Blueprint $table) {
+            $table->dropUnique('website_email_unique');
             $table->dropForeign(['website_id']);
+        });
+
+        Schema::table('contacts', function (Blueprint $table) {
             $table->dropColumn('website_id');
         });
 
         Schema::table('websites', function (Blueprint $table) {
-            $table->dropColumn([
-                'is_active',
-                'detected_platform',
-                'page_count',
-                'word_count',
-                'content_snapshot',
-                'meets_requirements',
-                'requirement_match_details',
-                'crawled_at',
-                'crawl_started_at',
-                'crawl_attempts',
-                'crawl_error',
-            ]);
+            if (Schema::hasColumn('websites', 'detected_platform')) {
+                $table->dropIndex(['detected_platform']);
+            }
+            if (Schema::hasColumn('websites', 'meets_requirements')) {
+                $table->dropIndex(['meets_requirements']);
+            }
+        });
+
+        Schema::table('websites', function (Blueprint $table) {
+            $columns = [];
+            foreach (['is_active', 'detected_platform', 'page_count', 'word_count', 'content_snapshot', 'meets_requirements', 'requirement_match_details', 'crawled_at', 'crawl_started_at', 'crawl_attempts', 'crawl_error'] as $col) {
+                if (Schema::hasColumn('websites', $col)) {
+                    $columns[] = $col;
+                }
+            }
+            if (!empty($columns)) {
+                $table->dropColumn($columns);
+            }
         });
     }
 

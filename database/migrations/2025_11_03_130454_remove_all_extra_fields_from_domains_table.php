@@ -9,8 +9,31 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('domains', function (Blueprint $table) {
-            $table->dropColumn(['status', 'last_checked_at', 'check_count', 'notes']);
-            $table->dropSoftDeletes();
+            if (Schema::hasIndex('domains', 'domains_status_index')) {
+                $table->dropIndex(['status']);
+            }
+        });
+
+        Schema::table('domains', function (Blueprint $table) {
+            $columns = [];
+            if (Schema::hasColumn('domains', 'status')) {
+                $columns[] = 'status';
+            }
+            if (Schema::hasColumn('domains', 'last_checked_at')) {
+                $columns[] = 'last_checked_at';
+            }
+            if (Schema::hasColumn('domains', 'check_count')) {
+                $columns[] = 'check_count';
+            }
+            if (Schema::hasColumn('domains', 'notes')) {
+                $columns[] = 'notes';
+            }
+            if (!empty($columns)) {
+                $table->dropColumn($columns);
+            }
+            if (Schema::hasColumn('domains', 'deleted_at')) {
+                $table->dropSoftDeletes();
+            }
         });
     }
 

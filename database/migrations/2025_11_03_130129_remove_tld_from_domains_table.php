@@ -9,6 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('domains', function (Blueprint $table) {
+            $table->dropIndex(['tld']);
+        });
+
+        Schema::table('domains', function (Blueprint $table) {
             $table->dropColumn('tld');
         });
     }

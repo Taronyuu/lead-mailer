@@ -19,6 +19,13 @@ return new class extends Migration
 
         Schema::table('websites', function (Blueprint $table) {
             if (Schema::hasColumn('websites', 'status')) {
+                $table->dropIndex(['status', 'meets_requirements']);
+                $table->dropIndex(['status']);
+            }
+        });
+
+        Schema::table('websites', function (Blueprint $table) {
+            if (Schema::hasColumn('websites', 'status')) {
                 $table->dropColumn('status');
             }
         });

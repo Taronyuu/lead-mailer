@@ -10,6 +10,12 @@ return new class extends Migration
     {
         Schema::table('domains', function (Blueprint $table) {
             if (Schema::hasColumn('domains', 'status')) {
+                $table->dropIndex(['status']);
+            }
+        });
+
+        Schema::table('domains', function (Blueprint $table) {
+            if (Schema::hasColumn('domains', 'status')) {
                 $table->dropColumn('status');
             }
             if (Schema::hasColumn('domains', 'last_checked_at')) {

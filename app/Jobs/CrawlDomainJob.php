@@ -16,7 +16,7 @@ class CrawlDomainJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 30;
+    public $timeout = 300;
     public $tries = 1;
 
     public function __construct(
